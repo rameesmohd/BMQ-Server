@@ -1,4 +1,3 @@
-const secureRandomPassword = require('secure-random-password');
 const userModel = require('../model/userModel')
 const bcrypt = require('bcrypt')
 const axios = require('axios')
@@ -6,6 +5,55 @@ const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto')
 const orderModel = require('../model/orderModel')
 const nodeMailer = require('nodemailer')
+const cloudinary = require('../config/cloudinary')
+const fs = require('fs')
+const { generateAuthToken } = require("../middleware/userAuth");
+
+const login=async(req,res)=>{
+    try {
+        console.log(req.body);
+        const {email,password} = req.body
+        if (!email || !password) {
+            return res
+              .status(400)
+              .json({ msg: "Please provide both email and password" });
+          }
+          const userDetails = await userModel.findOne({
+            email: email,
+            is_purchased:true,
+            is_blocked: false,
+          });
+      
+          if (userDetails) {
+
+            if(userDetails.is_loggedin){
+            return res.status(400).json({ message: "User already logged in. Please log out and try again." });
+            }
+          
+            const isMatch = await bcrypt.compare(password, userDetails.password);
+            if (isMatch) {
+              console.log('matched');
+              const response = {
+                user_id: null,
+                token: null
+              };
+              response.token = generateAuthToken(userDetails);
+              response.user_id = userDetails._id;
+      
+              await userModel.updateOne({_id:userDetails._id},{$set : {is_loggedin : true}})
+
+              return res.status(200).json({ result : response,message:"Success"});
+            } else {
+              return res.status(400).json({ message:"Password incorrect!!"});
+            }
+          } else {
+            return res.status(400).json({ message:"User not found!!"});
+          }    
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message : "Serverside error"})
+    }
+}
 
 const generateTransactionID =()=>{
     const timstamp = Date.now()
@@ -14,117 +62,67 @@ const generateTransactionID =()=>{
     const transaction_id = `${merchantPrefix}${timstamp}${randomNum}`
     return transaction_id 
 }
-const generatePass = ()=>{
-    const password = secureRandomPassword.randomPassword({
-        characters: secureRandomPassword.lower + secureRandomPassword.upper + secureRandomPassword.digits + secureRandomPassword.symbols,
-        length: 10,
-        strict: true
-    });
-    return password
-}
+
 
 const makePurchase =async(req,res)=>{
     try {
-        const {firstName,lastName,email,mobile,amount,course,support}= req.body.data
+        const {firstName,lastName,email,mobile,amount,course,support,payment_method}= req.body
         if (!firstName || !lastName || !email || !mobile || !amount || !course || support === undefined) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
         const alreadyuser =  await userModel.findOne({email : email})
 
-        let userId;
         let userData;
+
         if(!alreadyuser){
-        const newPass = generatePass()
-        const hashpassword = await bcrypt.hash(newPass, 10);
-            // Create a new user
+
             userData = await userModel.create({
                 firstName : firstName,
                 lastName : lastName,
                 email: email,
-                password: hashpassword,
                 mobile: mobile,
                 join_date: Date.now()
             })
             userId = userData._id; 
-        }else {
+        }else{
             userData = alreadyuser
-            userId = alreadyuser._id
         } 
-
-        const transactionId = generateTransactionID()
-
-        // Create a new order
-        const newOrder = await orderModel.create({
-            transaction_id: transactionId,
-            payment_method: 'phonepe',
-            payment_status: 'success',
-            user_email: email,
-            amount,
-            course,
-            support,
-            user_id: userId,
-            date: Date.now()
-        });
         
-        if(!alreadyuser){
-            try {
-                const transporter = nodeMailer.createTransport({
-            host:'smtp.gmail.com',
-            port:465,
-            secure:true,
-            require:true,
-            auth:{
-                user:process.env.OFFICIALMAIL,
-                pass :process.env.OFFICIALMAILPASS
-            }
-        })
-
-        const mailOptions = {
-            from : process.env.OFFICIALMAIL,
-            to:email,
-            subject:'Success mail',
-            html:`<div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
-            <div style="margin:50px auto;width:70%;padding:20px 0">
-            <div style="border-bottom:1px solid #009b1a">
-                <a href="" style="font-size:1.4em;color: #000000;text-decoration:none;font-weight:600">Welcome to Beatmarketedu.</a>
-            </div>
-            <p style="font-size:1.1em">Hi ${firstName},</p>
-            <p>We have received your payment in full for the recent invoice. 
-                Thank you for the prompt settlement.<br/> We greatly appreciate your
-                purchase and are here to assist you should you have any further requirements.</p>
-                <div style="background-color: #f0f1ff; padding: 10px; width: 50%;">
-                <h2>Your login credentials :</h2>    
-                <div style="border: black; flex: auto; flex-direction: row; justify-content: space-between;">
-                    <h5>Username : ${email}</h5>
-                    <h5>Password : ${newPass}</h5>
-                    <a href='https://xxxxxxxx/my-course' style="background: #00466a;margin: 0 auto;width: max-content;padding: 5 10px;
-                    color: #fff;border-radius: 4px;">Go to course</a>
-                    </div>
-                </div>  
-            <p style="font-size:0.9em;">Regards,<br />Beat Market Edu</p>
-            <hr style="border:none;border-top:1px solid #eee" />
-            <div style="float:right;padding:8px 0;color:#aaa;font-size:0.8em;line-height:1;font-weight:300">
-                <p>Beatmarketedu.</p>
-                </div>
-                </div>
-                </div>`
+        const image = req.files.uploadedFile[0]
+        let imageUrl = null;
+        if(image) {
+            await cloudinary.uploader.upload(image.path)
+            .then((data) => {
+                imageUrl = data.secure_url;
+            }).catch((err) => {
+                res.status(500).json({ error: 'Error uploading image to Cloudinary.' });
+            }).finally(()=>{
+                fs.unlinkSync(image.path)
+            })
+        }else{
+            res.status(400).json({message : "payment screenshot not included"})
         }
 
-        transporter.sendMail(mailOptions, function(error,info){
-            if(error){
-                console.log(error);
-                return false
-            }else{
-                console.log("Email has been sent :- ",info.response);
-                return true
-            }
-        }) 
-        } catch (error) {
-            console.log(error,"nodemailer");
-            res.status(500).json({message : "Error while sending mail!!"})
+        if(imageUrl) {
+            const transactionId = generateTransactionID()    
+            // Create a new order
+            const newOrder = await orderModel.create({
+                transaction_id: transactionId,
+                payment_method,
+                payment_status: 'pending',
+                user_email: email,
+                amount,
+                course,
+                support,
+                user_id: userData._id,
+                date: Date.now(),
+                screenshot : imageUrl
+            });
+        console.log(newOrder);
+        res.status(200).json({order: newOrder ,message : "You have successfully made order"});    
+        }else{
+            res.status(500).json({ error: 'Internal server error.' });
         }
-    }
-    res.status(200).json({ user: userData, order: newOrder ,message : "You have successfully made the purchase"});
     } catch (error) {
         console.log(error);
         res.status(500).json({message : "Serverside error"})
@@ -248,6 +246,7 @@ const phonePeStatus=async(req,res)=>{
 }
 
 module.exports = {
+    login,
     makePurchase,
     phonePePayment,
     phonePeStatus
