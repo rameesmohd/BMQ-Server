@@ -50,6 +50,10 @@ const userSchema = new mongoose.Schema({
   is_loggedin : {
     type : Boolean,
     default : false
+  },
+  partner : {
+    type : Boolean,
+    default : false
   }
 });
 

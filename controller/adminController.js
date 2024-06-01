@@ -3,19 +3,21 @@ const userModel = require("../model/userModel");
 const orderModel = require("../model/orderModel")
 const bcrypt = require('bcrypt')
 const secureRandomPassword = require('secure-random-password');
-
+const {generateAuthToken} = require('../middleware/adminAuth')
 
 
 const login = async( req,res)=>{
     try {
+        const admin = await userModel.findOne({email : req.body.username,is_admin : true})
         console.log(req.body);
-        const admin = await userModel.findOne({email : req.body.email,is_admin : true})
+        console.log(admin);
         if(admin){
-            const isMatch = await bcrypt.compare(req.body.password,admin.password);
-            console.log(isMatch);
+        const isMatch = await bcrypt.compare(req.body.password,admin.password);
+        console.log(isMatch);
             if(isMatch){
                 const token = generateAuthToken(admin);
-                res.status(200).json({ token,message:'OTP sent successfully,please check your email' }) 
+                console.log(token);
+                res.status(200).json({ token }) 
             }else{
                 return res.status(400).json({ message:"Password incurrect!!"});
             }

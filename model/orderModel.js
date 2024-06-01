@@ -42,6 +42,11 @@ const orderSchema = new mongoose.Schema({
   screenshot: {
     type: String,
     required: false
+  },
+  referal : {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "partner",
+    required: false
   }
 });
 

@@ -1,6 +1,11 @@
 const express = require("express")
 const router = express.Router()
 const adminController = require('../controller/adminController')
+const {verifyToken} = require('../middleware/adminAuth')
+
+router.post('/login',adminController.login)
+
+router.use(verifyToken)
 
 router.route('/users')
     .get(adminController.fetchUsers)
@@ -9,6 +14,5 @@ router.route('/order')
     .get(adminController.fetchOrder)
     .patch(adminController.handleOrder)
 
-router.post('/login',adminController.login)
 
 module.exports = router
