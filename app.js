@@ -9,16 +9,17 @@ require("dotenv").config();
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(`${process.env.MONGODB_URI}`);
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log("MongoDB connected successfully");
-} catch (error) {
+  } catch (error) {
     console.error("Error connecting to MongoDB:", error.message);
-}
+  }
 };
+
 connectDB()
 
 app.use(cors({
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173","https://www.beatmarketedu.in"],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
