@@ -160,9 +160,9 @@ const handleOrder=async(req,res)=>{
                                     <div style="background-color: #f0f1ff; padding: 10px; width: 80%;">
                                     <h2>Your login credentials :</h2>    
                                     <div style="border: black; flex: auto; flex-direction: row; justify-content: space-between;">
-                                        <h5>Username : ${user.email}</h5>
-                                        <h5>Password : ${newPass}</h5>
-                                        <a href='https://xxxxxxxx/my-course' style="background: #00466a;margin: 0 auto;width: max-content;padding: 5 10px;
+                                        <h5>User:${user.email}</h5>
+                                        <h5>Pass:${newPass}</h5>
+                                        <a href='https://beatmarketedu.in/my-course' style="background: #00466a;margin: 0 auto;width: max-content;padding: 5 10px;
                                         color: #fff;border-radius: 4px;">Go to course</a>
                                         </div>
                                     </div>  
