@@ -5,7 +5,7 @@ const generateAuthToken = (user) => {
   const token = jwt.sign(
     { _id:user._id,email:user.email,role:"admin" },
     jwtSecretKey,
-    { expiresIn: "48h" },
+    { expiresIn: "30d" },
   );
   return token;
 };
